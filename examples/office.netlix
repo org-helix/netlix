@@ -1,0 +1,306 @@
+{
+  "format": "netlix",
+  "version": 1,
+  "topology": {
+    "devices": [
+      {
+        "id": 0,
+        "kind": "Pc",
+        "name": "PC1",
+        "pos": [
+          80.0,
+          80.0
+        ],
+        "interfaces": [
+          {
+            "name": "eth0",
+            "ip": {
+              "addr": "10.0.1.10",
+              "prefix": 24
+            }
+          }
+        ],
+        "gateway": "10.0.1.1",
+        "routes": []
+      },
+      {
+        "id": 1,
+        "kind": "Pc",
+        "name": "PC2",
+        "pos": [
+          80.0,
+          260.0
+        ],
+        "interfaces": [
+          {
+            "name": "eth0",
+            "ip": {
+              "addr": "10.0.1.11",
+              "prefix": 24
+            }
+          }
+        ],
+        "gateway": "10.0.1.1",
+        "routes": []
+      },
+      {
+        "id": 2,
+        "kind": "Switch",
+        "name": "Switch1",
+        "pos": [
+          260.0,
+          170.0
+        ],
+        "interfaces": [
+          {
+            "name": "Fa0/1",
+            "ip": null
+          },
+          {
+            "name": "Fa0/2",
+            "ip": null
+          },
+          {
+            "name": "Fa0/3",
+            "ip": null
+          },
+          {
+            "name": "Fa0/4",
+            "ip": null
+          },
+          {
+            "name": "Fa0/5",
+            "ip": null
+          },
+          {
+            "name": "Fa0/6",
+            "ip": null
+          },
+          {
+            "name": "Fa0/7",
+            "ip": null
+          },
+          {
+            "name": "Fa0/8",
+            "ip": null
+          }
+        ],
+        "gateway": null,
+        "routes": []
+      },
+      {
+        "id": 3,
+        "kind": "Router",
+        "name": "Router1",
+        "pos": [
+          460.0,
+          170.0
+        ],
+        "interfaces": [
+          {
+            "name": "Gi0/0",
+            "ip": {
+              "addr": "10.0.1.1",
+              "prefix": 24
+            }
+          },
+          {
+            "name": "Gi0/1",
+            "ip": {
+              "addr": "10.0.2.1",
+              "prefix": 24
+            }
+          },
+          {
+            "name": "Gi0/2",
+            "ip": {
+              "addr": "203.0.113.2",
+              "prefix": 30
+            }
+          },
+          {
+            "name": "Gi0/3",
+            "ip": null
+          }
+        ],
+        "gateway": null,
+        "routes": [
+          {
+            "dest": "0.0.0.0",
+            "prefix": 0,
+            "next_hop": "203.0.113.1"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "kind": "Switch",
+        "name": "Switch2",
+        "pos": [
+          660.0,
+          170.0
+        ],
+        "interfaces": [
+          {
+            "name": "Fa0/1",
+            "ip": null
+          },
+          {
+            "name": "Fa0/2",
+            "ip": null
+          },
+          {
+            "name": "Fa0/3",
+            "ip": null
+          },
+          {
+            "name": "Fa0/4",
+            "ip": null
+          },
+          {
+            "name": "Fa0/5",
+            "ip": null
+          },
+          {
+            "name": "Fa0/6",
+            "ip": null
+          },
+          {
+            "name": "Fa0/7",
+            "ip": null
+          },
+          {
+            "name": "Fa0/8",
+            "ip": null
+          }
+        ],
+        "gateway": null,
+        "routes": []
+      },
+      {
+        "id": 5,
+        "kind": "Server",
+        "name": "Server1",
+        "pos": [
+          840.0,
+          170.0
+        ],
+        "interfaces": [
+          {
+            "name": "eth0",
+            "ip": {
+              "addr": "10.0.2.10",
+              "prefix": 24
+            }
+          }
+        ],
+        "gateway": "10.0.2.1",
+        "routes": []
+      },
+      {
+        "id": 6,
+        "kind": "Cloud",
+        "name": "Internet1",
+        "pos": [
+          460.0,
+          -40.0
+        ],
+        "interfaces": [
+          {
+            "name": "wan0",
+            "ip": {
+              "addr": "203.0.113.1",
+              "prefix": 30
+            }
+          },
+          {
+            "name": "wan1",
+            "ip": {
+              "addr": "8.8.8.8",
+              "prefix": 32
+            }
+          },
+          {
+            "name": "wan2",
+            "ip": null
+          },
+          {
+            "name": "wan3",
+            "ip": null
+          }
+        ],
+        "gateway": null,
+        "routes": [
+          {
+            "dest": "10.0.0.0",
+            "prefix": 8,
+            "next_hop": "203.0.113.2"
+          }
+        ]
+      }
+    ],
+    "links": [
+      {
+        "a": {
+          "device": 0,
+          "iface": 0
+        },
+        "b": {
+          "device": 2,
+          "iface": 0
+        }
+      },
+      {
+        "a": {
+          "device": 1,
+          "iface": 0
+        },
+        "b": {
+          "device": 2,
+          "iface": 1
+        }
+      },
+      {
+        "a": {
+          "device": 2,
+          "iface": 2
+        },
+        "b": {
+          "device": 3,
+          "iface": 0
+        }
+      },
+      {
+        "a": {
+          "device": 3,
+          "iface": 1
+        },
+        "b": {
+          "device": 4,
+          "iface": 0
+        }
+      },
+      {
+        "a": {
+          "device": 5,
+          "iface": 0
+        },
+        "b": {
+          "device": 4,
+          "iface": 1
+        }
+      },
+      {
+        "a": {
+          "device": 3,
+          "iface": 2
+        },
+        "b": {
+          "device": 6,
+          "iface": 0
+        }
+      }
+    ],
+    "next_id": 7
+  }
+}

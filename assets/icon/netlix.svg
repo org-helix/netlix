@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- netlix app icon. Helix palette: ink tile, Red router, Blush hosts, Pale Amber cables. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#322921"/>
+      <stop offset="1" stop-color="#1e1914"/>
+    </linearGradient>
+  </defs>
+  <rect x="40" y="40" width="944" height="944" rx="212" fill="url(#bg)"/>
+  <g stroke="#faf6ed" stroke-opacity="0.55" stroke-width="30" stroke-linecap="round">
+    <path d="M512 540 L276 300 M512 540 L748 300 M512 540 L512 812"/>
+  </g>
+  <g fill="#dcafa2">
+    <rect x="196" y="220" width="160" height="160" rx="36"/>
+    <rect x="668" y="220" width="160" height="160" rx="36"/>
+    <rect x="432" y="732" width="160" height="160" rx="36"/>
+  </g>
+  <circle cx="512" cy="540" r="118" fill="#b24e30"/>
+  <circle cx="512" cy="540" r="118" fill="none" stroke="#faf6ed" stroke-width="22"/>
+</svg>

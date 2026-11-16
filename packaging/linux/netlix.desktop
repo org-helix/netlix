@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=netlix
+GenericName=Network simulator
+GenericName[fr]=Simulateur de réseau
+Comment=Draw a network, set IP addresses and follow every frame of a ping
+Comment[fr]=Dessinez un réseau, configurez les adresses IP et suivez chaque trame d'un ping
+Exec=netlix %f
+Icon=netlix
+Terminal=false
+Categories=Education;ComputerScience;
+Keywords=network;simulator;ping;ip;router;switch;réseau;routeur;
+StartupWMClass=netlix

@@ -6,7 +6,21 @@ A small network simulator in the spirit of Packet Tracer. Draw a topology, set I
 
 ## Download
 
-Prebuilt binaries for Windows, Linux and macOS (Intel and Apple Silicon) are on the [Releases](https://github.com/org-helix/netlix/releases) page. Unzip and run `netlix`; nothing to install.
+One file per system, from the [latest release](https://github.com/org-helix/netlix/releases/latest):
+
+| System | File | How to install |
+|---|---|---|
+| Windows 10 and 11 (x64) | [`netlix-windows-setup.exe`](https://github.com/org-helix/netlix/releases/latest/download/netlix-windows-setup.exe) | Run it. netlix installs for your account only, without administrator rights, and adds a Start menu entry. `.netlix` files then open in netlix. Uninstall it from Settings → Apps. |
+| macOS 11 or later (Apple Silicon and Intel) | [`netlix-macos.dmg`](https://github.com/org-helix/netlix/releases/latest/download/netlix-macos.dmg) | Open it and drag netlix to Applications. |
+| Linux (x86-64) | [`netlix-linux.AppImage`](https://github.com/org-helix/netlix/releases/latest/download/netlix-linux.AppImage) | Make it executable (`chmod +x netlix-linux.AppImage`, or Properties → Allow executing as program), then run it. |
+
+On first launch netlix asks for its language and theme. Both can be changed later under **View**.
+
+The downloads are not code-signed yet:
+- Windows: SmartScreen may show "Windows protected your PC". Choose **More info → Run anyway**.
+- macOS: the first time, macOS refuses to open the app. Go to **System Settings → Privacy & Security** and choose **Open Anyway** (or run `xattr -dr com.apple.quarantine /Applications/netlix.app`).
+
+For a school or a whole machine, the Windows installer also runs silently or for every user: `netlix-windows-setup.exe /VERYSILENT /ALLUSERS` (the second needs administrator rights).
 
 ## Features
 
@@ -20,6 +34,7 @@ Prebuilt binaries for Windows, Linux and macOS (Intel and Apple Silicon) are on 
 - **ARP caches and MAC tables**: hosts and routers keep an ARP cache and switches learn a MAC address table. Both survive between pings, so the second ping skips address resolution. They are shown in each device's configuration window. Clear one device by right-clicking it (**Clear ARP cache** / **Clear MAC table**), or all of them from the console or **Edit**.
 - **Files**: New, Open, Save and Save as. Topologies are stored as readable, versioned JSON `.netlix` files. A file path given on the command line is opened at startup. If you try to close with unsaved changes, netlix asks first.
 - **Title bar**: netlix draws its own title bar instead of the system one. It holds the menus, the document name (with a dot when unsaved) and minimise / maximise / close. Drag it to move the window, double-click to maximise, and resize from any edge. On macOS the native window buttons are kept.
+- **First launch**: a welcome screen to choose the language and the theme, both applied live. The language is suggested from the system's. **Start with an example** opens the office topology.
 - **Themes**: dark by default, light under **View → Dark mode**. The choice is remembered between sessions.
 - **Languages**: French (default) and English, under **View → Language** (**Affichage → Langue**). Everything is translated: menus, panels, error messages and the explanation of every frame. Switching language re-runs the ping being stepped through so its explanations follow. New devices are named in the current language (Routeur1 / Router1).
 
@@ -61,11 +76,19 @@ cargo test     # simulation, file format and model tests
 cargo clippy --all-targets
 ```
 
-Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed.
+Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed. Each platform has a packaging script under `packaging/`, which can also be run by hand:
+
+| Platform | Command (from the repository root) | Output |
+|---|---|---|
+| Windows | `cargo build --release`, then `iscc packaging\windows\netlix.iss` ([Inno Setup 6](https://jrsoftware.org/isinfo.php)) | `dist/netlix-windows-setup.exe` |
+| macOS | `bash packaging/macos/build-dmg.sh` | `dist/netlix-macos.dmg` |
+| Linux | `bash packaging/linux/build-appimage.sh` | `dist/netlix-linux.AppImage` |
+
+Pull requests that change `packaging/` build the three files as workflow artifacts without publishing them. The app icon is drawn in `assets/icon/netlix.svg`; `assets/icon/make-icons.cjs` regenerates the PNG, ICO, ICNS and installer images from it.
 
 On Linux, building needs `libxkbcommon-dev libwayland-dev libgl1-mesa-dev` and the `libxcb-*` headers (see `.github/workflows/ci.yml`). File dialogs use the XDG portal, so GTK is not needed.
 
-Code map: `i18n.rs` (languages: every text is written in French and English where it is used, with `tr(fr, en)` or `tf!(fr, en)`), `model.rs` (topology data), `sim.rs` (frame-level ping, ARP, switching, routing), `io.rs` (file format), `canvas.rs` (drawing and interaction), `panels.rs` (toolbox, inspector, console), `theme.rs` (Helix look), `titlebar.rs` (custom title bar, window move and resize), `app.rs` (state, menus, files).
+Code map: `i18n.rs` (languages: every text is written in French and English where it is used, with `tr(fr, en)` or `tf!(fr, en)`), `model.rs` (topology data), `sim.rs` (frame-level ping, ARP, switching, routing), `io.rs` (file format), `canvas.rs` (drawing and interaction), `panels.rs` (toolbox, inspector, console), `theme.rs` (Helix look), `welcome.rs` (first-launch screen), `titlebar.rs` (custom title bar, window move and resize), `app.rs` (state, menus, files).
 
 ## Design
 

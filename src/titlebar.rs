@@ -54,7 +54,9 @@ pub fn show(app: &mut App, ui: &mut Ui) {
         ctx.send_viewport_cmd(ViewportCommand::Maximized(!maximized));
     }
 
-    document_name(app, ui.painter(), bar);
+    if !app.welcome {
+        document_name(app, ui.painter(), bar);
+    }
 
     let buttons_width = if MACOS { 0.0 } else { 3.0 * BUTTON_WIDTH };
     let left = Rect::from_min_max(bar.min, pos2(bar.right() - buttons_width, bar.bottom()));
@@ -76,8 +78,11 @@ pub fn show(app: &mut App, ui: &mut Ui) {
                 )
                 .selectable(false),
             );
-            ui.add_space(10.0);
-            egui::MenuBar::new().ui(ui, |ui| app.menus(ui));
+            // The welcome screen comes before any document: no menus yet.
+            if !app.welcome {
+                ui.add_space(10.0);
+                egui::MenuBar::new().ui(ui, |ui| app.menus(ui));
+            }
         },
     );
 

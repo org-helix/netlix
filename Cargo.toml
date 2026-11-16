@@ -1,6 +1,6 @@
 [package]
 name = "netlix"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "Minimal network simulator: draw a topology, configure IPs, ping."
 repository = "https://github.com/org-helix/netlix"

@@ -1,11 +1,20 @@
-First release of netlix, a small native network simulator: draw a topology, set IP addresses, ping.
+netlix 0.2.0 looks inside the ping: every Ethernet frame is simulated and explained, the app speaks French by default, and the window is laid out again with more room for the canvas.
 
-**Features**
-- Canvas with PCs, servers, switches, routers and an Internet cloud. Drag devices, scroll to zoom, link with the Link tool.
-- IP address and mask for each interface, a default gateway on hosts, and static routes on routers, all validated as you type.
-- Animated ping with an explanation for every failure: no gateway, no route, host unreachable, lost reply, or TTL expired.
-- New, Open, Save and Save as for `.netlix` files. An example topology is included (`office.netlix`, also under File → Load example).
-- Dark theme by default. Switch to light under View → Dark mode; the choice is remembered.
+**Frame-level simulation**
+- Each interface has a MAC address. Hosts and routers keep an **ARP cache**, so a missing entry sends a broadcast ARP request and the packet waits for the reply. Switches learn a **MAC address table**, forward known destinations and flood the rest. A loop between switches is stopped and reported as a broadcast storm.
+- Caches and tables are kept between pings, so the second ping skips address resolution. Clear one device by right-clicking it, or all of them from the console or the Edit menu.
+
+**Two send modes**
+- *Real time* plays the whole exchange. With **Explain every frame** on, the log lists every frame with the reason it was sent and its simplified headers (Ethernet, ARP, IPv4, ICMP).
+- *Step by step* stops after each step (Next / Back / Play, or the arrow keys). You see the frames on their cables, why each was sent, what each device did when it arrived, and the caches as they were at that step.
+
+**Languages**
+- French by default, English under View → Language. Everything is translated, including the explanations of every frame.
+
+**Window**
+- New title bar in the app's colours, with the menus, the document name and the window buttons.
+- The right-hand panel is gone. Right-click a device → **Configure…** (or double-click it) to edit it in a floating window. Right-click a cable to delete it.
+- The duplicate-IP warning that appeared while typing an address has been removed.
 
 **Downloads**
 | Platform | File |

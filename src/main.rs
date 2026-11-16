@@ -10,6 +10,7 @@ mod panels;
 mod sim;
 mod theme;
 mod titlebar;
+mod welcome;
 
 fn main() -> eframe::Result {
     // `netlix path/to/file.netlix` opens that file (also used by OS file associations).
@@ -20,7 +21,11 @@ fn main() -> eframe::Result {
             .with_title("netlix")
             .with_app_id("netlix")
             .with_inner_size([1280.0, 800.0])
-            .with_min_inner_size([900.0, 560.0]),
+            .with_min_inner_size([900.0, 560.0])
+            .with_icon(std::sync::Arc::new(
+                eframe::icon_data::from_png_bytes(include_bytes!("../assets/icon/netlix.png"))
+                    .expect("bundled icon is a valid PNG"),
+            )),
         ..Default::default()
     };
     eframe::run_native(

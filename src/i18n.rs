@@ -33,6 +33,19 @@ thread_local! {
     static LANG: Cell<Lang> = const { Cell::new(Lang::Fr) };
 }
 
+/// The language to suggest on the first launch: French for a French system or when the
+/// system language is unknown (netlix's default), English for any other language.
+pub fn system_lang() -> Lang {
+    lang_for_locale(sys_locale::get_locale().as_deref())
+}
+
+fn lang_for_locale(locale: Option<&str>) -> Lang {
+    match locale {
+        Some(l) if !l.to_ascii_lowercase().starts_with("fr") => Lang::En,
+        _ => Lang::Fr,
+    }
+}
+
 pub fn lang() -> Lang {
     LANG.with(Cell::get)
 }
@@ -75,5 +88,14 @@ mod tests {
         std::thread::spawn(|| assert_eq!(lang(), Lang::Fr))
             .join()
             .unwrap();
+    }
+
+    #[test]
+    fn suggests_a_language_from_the_system_locale() {
+        assert_eq!(lang_for_locale(Some("fr-FR")), Lang::Fr);
+        assert_eq!(lang_for_locale(Some("fr_CA.UTF-8")), Lang::Fr);
+        assert_eq!(lang_for_locale(Some("en-US")), Lang::En);
+        assert_eq!(lang_for_locale(Some("de-DE")), Lang::En);
+        assert_eq!(lang_for_locale(None), Lang::Fr);
     }
 }

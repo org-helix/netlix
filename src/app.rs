@@ -3,7 +3,7 @@
 use crate::i18n::{self, Lang, tr};
 use crate::model::{DeviceId, DeviceKind, Topology};
 use crate::panels::EditBuffers;
-use crate::{canvas, examples, io, panels, sim, tf, theme, titlebar};
+use crate::{canvas, examples, io, panels, sim, tf, theme, titlebar, welcome};
 use eframe::egui::{
     self, CentralPanel, Frame, Key, KeyboardShortcut, Margin, Modifiers, Panel, Ui, Vec2,
     ViewportCommand,
@@ -154,6 +154,8 @@ pub struct App {
     pub config_reposition: bool,
     /// Cable under the last right-click on the canvas.
     pub context_link: Option<usize>,
+    /// The first-launch screen (language and theme) is showing.
+    pub welcome: bool,
     pub now: f64,
     pending: Option<Pending>,
     allow_close: bool,
@@ -162,11 +164,14 @@ pub struct App {
 
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>, open: Option<PathBuf>) -> Self {
-        // Dark unless the user switched to light in an earlier session.
-        let prefs: Prefs = cc
-            .storage
-            .and_then(|s| eframe::get_value(s, PREFS_KEY))
-            .unwrap_or_default();
+        // Settings from earlier sessions. On the very first launch the language starts
+        // from the system's, and the welcome screen lets the user confirm both choices.
+        let stored: Option<Prefs> = cc.storage.and_then(|s| eframe::get_value(s, PREFS_KEY));
+        let first_launch = stored.is_none();
+        let mut prefs = stored.unwrap_or_default();
+        if first_launch {
+            prefs.lang = i18n::system_lang();
+        }
         i18n::set_lang(prefs.lang);
         theme::install(&cc.egui_ctx, prefs.dark);
         let mut app = Self {
@@ -192,6 +197,7 @@ impl App {
             config_pos: egui::pos2(320.0, 120.0),
             config_reposition: false,
             context_link: None,
+            welcome: !prefs.welcomed,
             now: 0.0,
             pending: None,
             allow_close: false,
@@ -315,7 +321,7 @@ impl App {
 
     /// Switch the interface language. The ping being shown is simulated again so its
     /// explanations follow; lines already in the log keep their language.
-    fn set_language(&mut self, lang: Lang) {
+    pub fn set_language(&mut self, lang: Lang) {
         i18n::set_lang(lang);
         if let Some(pb) = &mut self.playback {
             pb.run = sim::ping(&self.topo, &pb.initial, pb.run.source, pb.dst);
@@ -486,23 +492,26 @@ impl App {
                     self.open_path(path);
                 }
             }
-            Pending::Example => {
-                self.replace_topology(examples::office(), None);
-                self.ping_src = self.topo.devices.first().map(|d| d.id);
-                self.ping_dst = "8.8.8.8".into();
-                self.set_status(
-                    tr(
-                        "Exemple chargé. Cliquez sur « Envoyer le ping » pour l'essayer.",
-                        "Example loaded. Press \"Send ping\" to try it.",
-                    ),
-                    false,
-                );
-            }
+            Pending::Example => self.load_example(),
             Pending::Quit => {
                 self.allow_close = true;
                 ctx.send_viewport_cmd(ViewportCommand::Close);
             }
         }
+    }
+
+    /// Replace the canvas with the office example, ready to ping the Internet.
+    pub fn load_example(&mut self) {
+        self.replace_topology(examples::office(), None);
+        self.ping_src = self.topo.devices.first().map(|d| d.id);
+        self.ping_dst = "8.8.8.8".into();
+        self.set_status(
+            tr(
+                "Exemple chargé. Cliquez sur « Envoyer le ping » pour l'essayer.",
+                "Example loaded. Press \"Send ping\" to try it.",
+            ),
+            false,
+        );
     }
 
     fn open_path(&mut self, path: PathBuf) {
@@ -870,6 +879,8 @@ struct Prefs {
     animate: bool,
     step_by_step: bool,
     explain: bool,
+    /// The first-launch screen has been completed.
+    welcomed: bool,
 }
 
 impl Prefs {
@@ -890,6 +901,7 @@ impl Default for Prefs {
             animate: true,
             step_by_step: false,
             explain: false,
+            welcomed: false,
         }
     }
 }
@@ -902,6 +914,7 @@ impl eframe::App for App {
             animate: self.animate,
             step_by_step: self.mode == SendMode::StepByStep,
             explain: self.explain,
+            welcomed: !self.welcome,
         };
         eframe::set_value(storage, PREFS_KEY, &prefs);
     }
@@ -910,8 +923,10 @@ impl eframe::App for App {
         let ctx = ui.ctx().clone();
         self.now = ctx.input(|i| i.time);
         self.handle_close(&ctx);
-        self.shortcuts(&ctx);
-        self.tick(&ctx);
+        if !self.welcome {
+            self.shortcuts(&ctx);
+            self.tick(&ctx);
+        }
         self.update_title(&ctx);
 
         let window = ui.max_rect();
@@ -919,6 +934,12 @@ impl eframe::App for App {
             .exact_size(titlebar::HEIGHT)
             .frame(Frame::new().fill(theme::pal().panel))
             .show(ui, |ui| titlebar::show(self, ui));
+        if self.welcome {
+            CentralPanel::no_frame().show(ui, |ui| welcome::show(self, ui));
+            titlebar::resize_edges(ui, window);
+            self.pending_modal(&ctx);
+            return;
+        }
         Panel::bottom("console")
             .resizable(true)
             .default_size(330.0)

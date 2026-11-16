@@ -1,66 +1,84 @@
 name: Release
 
-# Push a tag like v0.1.0 to build every platform and publish a GitHub release.
+# Push a tag like v0.3.0 to build one download per platform and publish a GitHub release:
+#   netlix-windows-setup.exe   installer (current user, no admin rights)
+#   netlix-macos.dmg           universal app (Apple Silicon and Intel)
+#   netlix-linux.AppImage      single executable file (x86-64)
+# The file names carry no version, so .../releases/latest/download/<name> always
+# points at the newest one (the website links there).
+#
+# Pull requests that touch the packaging, and manual runs, build the same files as
+# workflow artifacts without publishing anything.
 on:
   push:
     tags: ["v*"]
+  pull_request:
+    paths:
+      - "packaging/**"
+      - "assets/icon/**"
+      - ".github/workflows/release.yml"
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build:
-    name: ${{ matrix.target }}
+  package:
+    name: ${{ matrix.name }}
     strategy:
       fail-fast: true
       matrix:
         include:
-          - { os: windows-latest, target: x86_64-pc-windows-msvc, archive: zip }
-          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, archive: tar.gz }
-          - { os: macos-latest, target: aarch64-apple-darwin, archive: tar.gz }
-          - { os: macos-latest, target: x86_64-apple-darwin, archive: tar.gz }
+          - { name: windows, os: windows-latest, file: netlix-windows-setup.exe }
+          - { name: macos, os: macos-latest, file: netlix-macos.dmg }
+          # Oldest supported Ubuntu: the AppImage then runs on any newer glibc.
+          - { name: linux, os: ubuntu-22.04, file: netlix-linux.AppImage }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: ${{ matrix.name == 'macos' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.target }}
+          key: ${{ matrix.name }}
       - name: Linux system libraries
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libwayland-dev libgl1-mesa-dev
-      - run: cargo test
-        if: matrix.target != 'x86_64-apple-darwin' # cross-compiled on an Apple Silicon runner
-      - run: cargo build --release --locked --target ${{ matrix.target }}
-      - name: Package
-        shell: bash
+      - run: cargo test --locked
+
+      - name: Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          name="netlix-${GITHUB_REF_NAME}-${{ matrix.target }}"
-          mkdir -p "dist/$name"
-          bin="target/${{ matrix.target }}/release/netlix"
-          [ -f "$bin.exe" ] && bin="$bin.exe"
-          cp "$bin" README.md "dist/$name/"
-          cp examples/office.netlix "dist/$name/"
-          cp assets/fonts/OFL-*.txt "dist/$name/"
-          cd dist
-          if [ "${{ matrix.archive }}" = zip ]; then
-            7z a "$name.zip" "$name" > /dev/null
-          else
-            tar czf "$name.tar.gz" "$name"
-          fi
+          cargo build --release --locked
+          $setup = "$env:RUNNER_TEMP\innosetup-6.7.4.exe"
+          Invoke-WebRequest -Uri https://github.com/jrsoftware/issrc/releases/download/is-6_7_4/innosetup-6.7.4.exe -OutFile $setup
+          if ((Get-FileHash $setup -Algorithm SHA256).Hash -ne 'A549929319F9120716677C685535CA4671E4B937B5FDC87E2585F32D8EB30E8C') { throw 'Inno Setup checksum mismatch' }
+          Start-Process $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER',"/DIR=$env:RUNNER_TEMP\inno" -Wait
+          & "$env:RUNNER_TEMP\inno\ISCC.exe" packaging\windows\netlix.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: macOS disk image
+        if: runner.os == 'macOS'
+        run: bash packaging/macos/build-dmg.sh
+      - name: Linux AppImage
+        if: runner.os == 'Linux'
+        run: bash packaging/linux/build-appimage.sh
+
       - uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.target }}
-          path: dist/*.${{ matrix.archive }}
+          name: ${{ matrix.file }}
+          path: dist/${{ matrix.file }}
           if-no-files-found: error
 
   publish:
-    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8

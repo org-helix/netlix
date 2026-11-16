@@ -91,7 +91,7 @@
       {
         "id": 3,
         "kind": "Router",
-        "name": "Router1",
+        "name": "Routeur1",
         "pos": [
           460.0,
           170.0
@@ -180,7 +180,7 @@
       {
         "id": 5,
         "kind": "Server",
-        "name": "Server1",
+        "name": "Serveur1",
         "pos": [
           840.0,
           170.0

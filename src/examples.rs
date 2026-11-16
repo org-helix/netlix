@@ -67,8 +67,8 @@ mod tests {
         let t = office();
         let pc1 = t.devices[0].id;
         for dst in ["10.0.1.11", "10.0.2.10", "203.0.113.1", "8.8.8.8"] {
-            let r = ping(&t, pc1, ip(dst));
-            assert!(r.success, "{dst}: {:?}", r.lines);
+            let r = ping(&t, &crate::sim::NetState::default(), pc1, ip(dst));
+            assert!(r.success, "{dst}: {}", r.summary);
         }
     }
 }
@@ -79,6 +79,8 @@ mod shipped {
     /// Regenerate with `NETLIX_WRITE_EXAMPLE=1 cargo test shipped`.
     #[test]
     fn shipped_example_matches() {
+        // Device names follow the language; the shipped file is the French default.
+        crate::i18n::set_lang(crate::i18n::Lang::Fr);
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/examples/office.netlix");
         let text = crate::io::to_string(&super::office());
         if std::env::var_os("NETLIX_WRITE_EXAMPLE").is_some() {

@@ -1,5 +1,7 @@
 //! Topology data model: devices, interfaces, links. Pure data, no UI.
 
+use crate::i18n::tr;
+use crate::tf;
 use serde::{Deserialize, Serialize};
 use std::net::Ipv4Addr;
 
@@ -23,21 +25,26 @@ impl DeviceKind {
         DeviceKind::Cloud,
     ];
 
+    /// Kind name in the current language; also the prefix of auto-generated
+    /// names ("PC1", "Routeur2"…).
     pub fn label(self) -> &'static str {
         match self {
             DeviceKind::Pc => "PC",
-            DeviceKind::Server => "Server",
+            DeviceKind::Server => tr("Serveur", "Server"),
             DeviceKind::Switch => "Switch",
-            DeviceKind::Router => "Router",
+            DeviceKind::Router => tr("Routeur", "Router"),
             DeviceKind::Cloud => "Internet",
         }
     }
 
-    /// Prefix used for auto-generated names ("PC1", "Router2"...).
-    fn name_prefix(self) -> &'static str {
+    /// "un routeur" / "a router", for sentences.
+    pub fn with_article(self) -> &'static str {
         match self {
-            DeviceKind::Cloud => "Internet",
-            k => k.label(),
+            DeviceKind::Pc => tr("un PC", "a PC"),
+            DeviceKind::Server => tr("un serveur", "a server"),
+            DeviceKind::Switch => tr("un switch", "a switch"),
+            DeviceKind::Router => tr("un routeur", "a router"),
+            DeviceKind::Cloud => tr("un nuage Internet", "an Internet cloud"),
         }
     }
 
@@ -179,11 +186,25 @@ pub enum LinkError {
 
 impl std::fmt::Display for LinkError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LinkError::SameDevice => write!(f, "A device can't be linked to itself."),
-            LinkError::NoFreePort(name) => write!(f, "{name} has no free port left."),
-            LinkError::AlreadyLinked => write!(f, "These devices are already linked."),
-        }
+        let text = match self {
+            LinkError::SameDevice => tr(
+                "Un appareil ne peut pas être relié à lui-même.",
+                "A device can't be linked to itself.",
+            )
+            .to_owned(),
+            LinkError::NoFreePort(name) => {
+                tf!(
+                    "{name} n'a plus de port libre.",
+                    "{name} has no free port left."
+                )
+            }
+            LinkError::AlreadyLinked => tr(
+                "Ces appareils sont déjà reliés.",
+                "These devices are already linked.",
+            )
+            .to_owned(),
+        };
+        f.write_str(&text)
     }
 }
 
@@ -209,7 +230,7 @@ impl Topology {
         let max_id = self.devices.iter().map(|d| d.id + 1).max().unwrap_or(0);
         let id = self.next_id.max(max_id);
         self.next_id = id + 1;
-        let name = self.unique_name(kind.name_prefix());
+        let name = self.unique_name(kind.label());
         self.devices.push(Device {
             id,
             kind,
@@ -275,22 +296,6 @@ impl Topology {
         self.device(ep.device)
             .and_then(|d| d.interfaces.get(ep.iface))
             .map_or("?", |i| i.name.as_str())
-    }
-
-    /// Devices sharing an IP address (shown as a warning in the inspector).
-    pub fn duplicate_ips(&self) -> Vec<Ipv4Addr> {
-        let mut seen = std::collections::HashSet::new();
-        let mut dups = Vec::new();
-        for ip in self
-            .devices
-            .iter()
-            .flat_map(|d| d.interfaces.iter().filter_map(|i| i.ip.map(|c| c.addr)))
-        {
-            if !seen.insert(ip) && !dups.contains(&ip) {
-                dups.push(ip);
-            }
-        }
-        dups
     }
 }
 

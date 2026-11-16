@@ -1,6 +1,7 @@
 //! `.netlix` files: JSON with a format tag and version, so future versions can migrate.
 
 use crate::model::Topology;
+use crate::tf;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -25,28 +26,43 @@ pub fn to_string(topo: &Topology) -> String {
 }
 
 pub fn from_str(text: &str) -> Result<Topology, String> {
-    let file: FileV1 =
-        serde_json::from_str(text).map_err(|e| format!("Not a valid netlix file: {e}"))?;
+    let file: FileV1 = serde_json::from_str(text).map_err(|e| {
+        tf!(
+            "Ce n'est pas un fichier netlix valide : {e}",
+            "Not a valid netlix file: {e}"
+        )
+    })?;
     if file.format != FORMAT {
-        return Err(format!("Unknown file format \"{}\".", file.format));
+        let format = &file.format;
+        return Err(tf!(
+            "Format de fichier inconnu « {format} ».",
+            "Unknown file format \"{format}\"."
+        ));
     }
     if file.version > VERSION {
-        return Err(format!(
-            "This file was made by a newer netlix (format v{}). Please update.",
-            file.version
+        let v = file.version;
+        return Err(tf!(
+            "Ce fichier vient d'une version plus récente de netlix (format v{v}). Mettez netlix à jour.",
+            "This file was made by a newer netlix (format v{v}). Please update."
         ));
     }
     Ok(file.topology)
 }
 
 pub fn save(path: &Path, topo: &Topology) -> Result<(), String> {
-    std::fs::write(path, to_string(topo))
-        .map_err(|e| format!("Couldn't save {}: {e}", path.display()))
+    let p = path.display();
+    std::fs::write(path, to_string(topo)).map_err(|e| {
+        tf!(
+            "Impossible d'enregistrer {p} : {e}",
+            "Couldn't save {p}: {e}"
+        )
+    })
 }
 
 pub fn load(path: &Path) -> Result<Topology, String> {
+    let p = path.display();
     let text = std::fs::read_to_string(path)
-        .map_err(|e| format!("Couldn't open {}: {e}", path.display()))?;
+        .map_err(|e| tf!("Impossible d'ouvrir {p} : {e}", "Couldn't open {p}: {e}"))?;
     from_str(&text)
 }
 

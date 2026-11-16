@@ -3,18 +3,20 @@
 mod app;
 mod canvas;
 mod examples;
+mod i18n;
 mod io;
 mod model;
 mod panels;
 mod sim;
 mod theme;
+mod titlebar;
 
 fn main() -> eframe::Result {
     // `netlix path/to/file.netlix` opens that file (also used by OS file associations).
     let open = std::env::args_os().nth(1).map(std::path::PathBuf::from);
 
     let options = eframe::NativeOptions {
-        viewport: eframe::egui::ViewportBuilder::default()
+        viewport: titlebar::viewport(eframe::egui::ViewportBuilder::default())
             .with_title("netlix")
             .with_app_id("netlix")
             .with_inner_size([1280.0, 800.0])

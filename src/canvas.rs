@@ -1,8 +1,11 @@
 //! The topology canvas: pan/zoom, placing and dragging devices, drawing links,
 //! and the packet animation.
 
-use crate::app::{App, Selection, Tool};
-use crate::model::{Device, DeviceId, DeviceKind};
+use crate::app::{App, Selection, SendMode, Tool};
+use crate::i18n::tr;
+use crate::model::{Device, DeviceId, DeviceKind, Endpoint};
+use crate::sim::{self, FrameKind};
+use crate::tf;
 use crate::theme::{self, pal};
 use eframe::egui::{
     self, Align2, Color32, CornerRadius, FontFamily, FontId, Galley, Painter, Pos2, Rect, Sense,
@@ -13,8 +16,6 @@ use std::sync::Arc;
 /// Device tile size in world units.
 pub const TILE: f32 = 64.0;
 const GRID: f32 = 32.0;
-/// Seconds per link crossed by the animated packet.
-const HOP_SECONDS: f64 = 0.32;
 const MIN_ZOOM: f32 = 0.3;
 const MAX_ZOOM: f32 = 3.0;
 
@@ -67,8 +68,9 @@ pub fn show(app: &mut App, ui: &mut Ui) {
     }
 
     handle_background(app, &xf, &bg);
+    link_menu(app, &xf, &bg);
     draw_rubber_band(app, ui, &painter, &xf);
-    draw_packet(app, ui, &painter, &xf);
+    draw_frames(app, &painter, &xf);
     draw_overlays(app, ui, &painter, rect);
 }
 
@@ -186,7 +188,8 @@ fn caption(painter: &Painter, dev: &Device, zoom: f32) -> Vec<Arc<Galley>> {
             .collect();
         let mut lines: Vec<String> = ips.iter().take(2).cloned().collect();
         if ips.len() > 2 {
-            lines.push(format!("+{} more", ips.len() - 2));
+            let n = ips.len() - 2;
+            lines.push(tf!("+{n} autres", "+{n} more"));
         }
         for line in lines {
             out.push(painter.layout_no_wrap(line, ip_font.clone(), pal().muted));
@@ -288,6 +291,9 @@ fn handle_device(app: &mut App, xf: &Xform, id: DeviceId, resp: &egui::Response)
                 app.selection = Selection::Device(id);
                 app.tool = Tool::Select;
             }
+            if resp.double_clicked() {
+                app.open_config(id, resp.rect.right_top() + vec2(16.0, 0.0));
+            }
             if resp.dragged() && resp.drag_delta() != Vec2::ZERO {
                 let d = resp.drag_delta() / xf.zoom;
                 if let Some(dev) = app.topo.device_mut(id) {
@@ -308,13 +314,17 @@ fn handle_device(app: &mut App, xf: &Xform, id: DeviceId, resp: &egui::Response)
                     Some(from) => match app.topo.connect(from, id) {
                         Ok(i) => {
                             let l = app.topo.links[i];
-                            let text = format!(
-                                "Linked {} {} ↔ {} {}",
+                            let a = format!(
+                                "{} {}",
                                 dev_name(app, l.a.device),
-                                app.topo.iface_name(l.a),
+                                app.topo.iface_name(l.a)
+                            );
+                            let b = format!(
+                                "{} {}",
                                 dev_name(app, l.b.device),
                                 app.topo.iface_name(l.b)
                             );
+                            let text = tf!("Relié : {a} ↔ {b}", "Linked {a} ↔ {b}");
                             app.set_status(text, false);
                             app.selection = Selection::Link(i);
                             app.mark_dirty();
@@ -326,19 +336,45 @@ fn handle_device(app: &mut App, xf: &Xform, id: DeviceId, resp: &egui::Response)
         }
     }
 
+    let is_switch = app.topo.device(id).is_some_and(|d| d.kind.is_switch());
     resp.context_menu(|ui| {
-        if ui.button("Ping from here").clicked() {
+        if ui.button(tr("Configurer…", "Configure…")).clicked() {
+            app.open_config(id, resp.rect.right_top() + vec2(16.0, 0.0));
+            ui.close();
+        }
+        ui.separator();
+        if !is_switch
+            && ui
+                .button(tr("Pinger depuis ici", "Ping from here"))
+                .clicked()
+        {
             app.ping_src = Some(id);
             ui.close();
         }
-        if ui.button("Link from here").clicked() {
+        if ui
+            .button(tr("Relier depuis ici", "Link from here"))
+            .clicked()
+        {
             app.tool = Tool::Link;
             app.link_from = Some(id);
             ui.close();
         }
+        let clear = if is_switch {
+            tr("Vider la table MAC", "Clear MAC table")
+        } else {
+            tr("Vider le cache ARP", "Clear ARP cache")
+        };
+        if ui.button(clear).clicked() {
+            if is_switch {
+                app.clear_mac_tables(Some(id));
+            } else {
+                app.clear_arp(Some(id));
+            }
+            ui.close();
+        }
         ui.separator();
         if ui
-            .button(egui::RichText::new("Delete").color(pal().error))
+            .button(egui::RichText::new(tr("Supprimer", "Delete")).color(pal().error))
             .clicked()
         {
             app.selection = Selection::Device(id);
@@ -360,6 +396,35 @@ fn dev_name(app: &App, id: DeviceId) -> String {
     app.topo
         .device(id)
         .map_or_else(|| "?".into(), |d| d.name.clone())
+}
+
+/// Right-click on a cable: delete it.
+fn link_menu(app: &mut App, xf: &Xform, bg: &egui::Response) {
+    if bg.secondary_clicked() {
+        app.context_link = bg.interact_pointer_pos().and_then(|p| link_at(app, xf, p));
+        if let Some(i) = app.context_link {
+            app.selection = Selection::Link(i);
+        }
+    }
+    let Some(i) = app.context_link.filter(|i| *i < app.topo.links.len()) else {
+        return;
+    };
+    let link = app.topo.links[i];
+    let end = |ep: Endpoint| format!("{} {}", dev_name(app, ep.device), app.topo.iface_name(ep));
+    let label = format!("{} ↔ {}", end(link.a), end(link.b));
+    bg.context_menu(|ui| {
+        ui.label(theme::muted(label));
+        ui.separator();
+        if ui
+            .button(egui::RichText::new(tr("Supprimer le lien", "Delete link")).color(pal().error))
+            .clicked()
+        {
+            app.selection = Selection::Link(i);
+            app.delete_selection();
+            app.context_link = None;
+            ui.close();
+        }
+    });
 }
 
 fn handle_background(app: &mut App, xf: &Xform, bg: &egui::Response) {
@@ -431,57 +496,82 @@ fn draw_rubber_band(app: &App, ui: &Ui, painter: &Painter, xf: &Xform) {
     }
 }
 
-fn draw_packet(app: &mut App, ui: &Ui, painter: &Painter, xf: &Xform) {
-    let Some(anim) = &app.anim else { return };
-    let segments = anim.path.len().saturating_sub(1);
-    let progress = (app.now - anim.started) / HOP_SECONDS;
-    let lingering = progress - segments as f64;
-
-    if lingering >= 0.0 {
-        // Path done: show the outcome briefly on the last device, then stop.
-        if lingering > 3.0 {
-            app.anim = None;
-            return;
+fn draw_frames(app: &App, painter: &Painter, xf: &Xform) {
+    let Some(pb) = &app.playback else {
+        return;
+    };
+    let c = pal();
+    let t = ((app.now - pb.step_started) / pb.step_seconds()).clamp(0.0, 1.0) as f32;
+    // Step by step: stop short of the receiver so the frame stays visible on its cable.
+    let travel = match pb.mode {
+        SendMode::Realtime => t,
+        SendMode::StepByStep => t * 0.78,
+    };
+    for (i, tx) in pb.run.frames_at(pb.step) {
+        let (Some(a), Some(b)) = (
+            center(app, xf, tx.from.device),
+            center(app, xf, tx.to.device),
+        ) else {
+            continue;
+        };
+        let p = a + (b - a) * travel;
+        if pb.selected == Some(i) {
+            painter.circle_stroke(p, 14.0, Stroke::new(2.0, c.ring));
         }
-        if let Some(c) = anim.path.last().and_then(|id| center(app, xf, *id)) {
-            let (glyph, color) = if anim.success {
-                ("✓", pal().success)
+        frame_dot(painter, p, tx.frame.kind(), 8.0);
+    }
+
+    // Outcome badge once the last step has played: on the source when it worked,
+    // on the device that gave up otherwise.
+    if pb.at_end() && t >= 1.0 {
+        let run = &pb.run;
+        let at_device = if run.success {
+            Some(run.source)
+        } else {
+            run.notes
+                .iter()
+                .find(|n| n.kind == sim::NoteKind::Failure)
+                .and_then(|n| n.device)
+                .or(Some(run.source))
+        };
+        if let Some(cn) = at_device.and_then(|id| center(app, xf, id)) {
+            let (glyph, color) = if run.success {
+                ("✓", c.success)
             } else {
-                ("✕", pal().error)
+                ("✕", c.error)
             };
-            let at = c + vec2(TILE * 0.5, -TILE * 0.5) * xf.zoom;
+            let at = cn + vec2(TILE * 0.5, -TILE * 0.5) * xf.zoom;
             painter.circle_filled(at, 11.0, color);
             painter.text(
                 at,
                 Align2::CENTER_CENTER,
                 glyph,
                 FontId::proportional(14.0),
-                pal().on_status,
+                c.on_status,
             );
         }
-        ui.ctx().request_repaint();
-        return;
     }
+}
 
-    let idx = progress.floor() as usize;
-    let t = progress.fract() as f32;
-    let (Some(a), Some(b)) = (
-        center(app, xf, anim.path[idx]),
-        center(app, xf, anim.path[idx + 1]),
-    ) else {
-        app.anim = None;
-        return;
-    };
-    let p = a + (b - a) * t;
-    // Request in Red, reply in the text colour.
-    let color = if idx + 1 < anim.request_len {
-        pal().accent
-    } else {
-        pal().reply
-    };
-    painter.circle_filled(p, 8.0, color);
-    painter.circle_filled(p, 3.0, pal().canvas);
-    ui.ctx().request_repaint();
+/// The marker of a frame: hollow ring for ARP, filled Red for an echo request,
+/// filled text colour for an echo reply.
+pub fn frame_dot(painter: &Painter, p: Pos2, kind: FrameKind, r: f32) {
+    let c = pal();
+    match kind {
+        FrameKind::Arp => {
+            painter.circle_filled(p, r, c.canvas);
+            painter.circle_stroke(p, r - 1.25, Stroke::new(2.5, c.text));
+        }
+        FrameKind::Request | FrameKind::Reply => {
+            let fill = if kind == FrameKind::Request {
+                c.accent
+            } else {
+                c.reply
+            };
+            painter.circle_filled(p, r, fill);
+            painter.circle_filled(p, r * 0.38, c.canvas);
+        }
+    }
 }
 
 fn draw_overlays(app: &mut App, ui: &Ui, painter: &Painter, rect: Rect) {
@@ -491,14 +581,17 @@ fn draw_overlays(app: &mut App, ui: &Ui, painter: &Painter, rect: Rect) {
         painter.text(
             c - vec2(0.0, 14.0),
             Align2::CENTER_BOTTOM,
-            "Start a topology",
+            tr("Commencez une topologie", "Start a topology"),
             FontId::new(26.0, theme::display()),
             pal().text,
         );
         painter.text(
             c,
             Align2::CENTER_TOP,
-            "Pick a device on the left and click here to place it,\nor use File → Load example.",
+            tr(
+                "Choisissez un appareil à gauche puis cliquez ici pour le placer,\nou utilisez Fichier → Charger l'exemple.",
+                "Pick a device on the left and click here to place it,\nor use File → Load example.",
+            ),
             FontId::proportional(15.0),
             pal().muted,
         );
@@ -507,14 +600,27 @@ fn draw_overlays(app: &mut App, ui: &Ui, painter: &Painter, rect: Rect) {
     // Tool hint, top-left.
     let hint = match app.tool {
         Tool::Select => None,
-        Tool::Place(kind) => Some(format!(
-            "Click to place a {} · Shift keeps the tool · Esc cancels",
-            kind_name(kind)
-        )),
-        Tool::Link if app.link_from.is_some() => {
-            Some("Click the second device · Esc cancels".to_owned())
+        Tool::Place(kind) => {
+            let what = kind.with_article();
+            Some(tf!(
+                "Cliquez pour placer {what} · Maj garde l'outil · Échap annule",
+                "Click to place {what} · Shift keeps the tool · Esc cancels"
+            ))
         }
-        Tool::Link => Some("Click the first device to link · Esc cancels".to_owned()),
+        Tool::Link if app.link_from.is_some() => Some(
+            tr(
+                "Cliquez sur le second appareil · Échap annule",
+                "Click the second device · Esc cancels",
+            )
+            .to_owned(),
+        ),
+        Tool::Link => Some(
+            tr(
+                "Cliquez sur le premier appareil à relier · Échap annule",
+                "Click the first device to link · Esc cancels",
+            )
+            .to_owned(),
+        ),
     };
     if let Some(hint) = hint {
         pill(
@@ -551,21 +657,18 @@ fn draw_overlays(app: &mut App, ui: &Ui, painter: &Painter, rect: Rect) {
         }
     }
 
-    // Zoom level, bottom-right.
+    // Topology summary and zoom level, bottom-right.
     painter.text(
         rect.right_bottom() + vec2(-16.0, -16.0),
         Align2::RIGHT_BOTTOM,
-        format!("{:.0} %", app.view.zoom * 100.0),
-        FontId::monospace(12.0),
+        format!(
+            "{} · {:.0} %",
+            crate::panels::topology_summary(app),
+            app.view.zoom * 100.0
+        ),
+        FontId::proportional(12.0),
         pal().muted,
     );
-}
-
-fn kind_name(kind: DeviceKind) -> &'static str {
-    match kind {
-        DeviceKind::Cloud => "Internet cloud",
-        k => k.label(),
-    }
 }
 
 fn pill(painter: &Painter, at: Pos2, align: Align2, text: &str, bg: Color32, fg: Color32) {

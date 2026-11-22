@@ -7,6 +7,9 @@ name: Release
 # The file names carry no version, so .../releases/latest/download/<name> always
 # points at the newest one (the website links there).
 #
+# Release notes come from docs/releases/<tag>.md when that file exists, otherwise they are
+# generated from the commits.
+#
 # Pull requests that touch the packaging, and manual runs, build the same files as
 # workflow artifacts without publishing anything.
 on:
@@ -89,7 +92,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          if [ -f "docs/releases/$GITHUB_REF_NAME.md" ]; then
+            notes=(--notes-file "docs/releases/$GITHUB_REF_NAME.md")
+          else
+            notes=(--generate-notes)
+          fi
           gh release create "$GITHUB_REF_NAME" dist/* \
             --title "netlix $GITHUB_REF_NAME" \
-            --notes-file .github/release-notes.md \
+            "${notes[@]}" \
             --verify-tag

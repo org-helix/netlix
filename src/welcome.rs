@@ -42,8 +42,9 @@ fn content(app: &mut App, ui: &mut Ui, width: f32) {
     ui.spacing_mut().item_spacing = vec2(GAP, 0.0);
 
     ui.label(theme::eyebrow(format!(
-        "netlix {}",
-        env!("CARGO_PKG_VERSION")
+        "netlix {} · {}",
+        env!("CARGO_PKG_VERSION"),
+        tr("Un projet Helix", "A Helix project")
     )));
     ui.add_space(8.0);
     ui.label(

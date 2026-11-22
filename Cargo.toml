@@ -2,7 +2,10 @@
 name = "netlix"
 version = "0.3.0"
 edition = "2024"
-description = "Minimal network simulator: draw a topology, configure IPs, ping."
+description = "Minimal network simulator: draw a topology, configure IPs, ping. A Helix project."
+license = "GPL-3.0-only"
+authors = ["Helix contributors"]
+homepage = "https://org-helix.github.io/helix-website/"
 repository = "https://github.com/org-helix/netlix"
 
 [dependencies]

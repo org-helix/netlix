@@ -3,7 +3,7 @@
 //! depth from translucent fills instead of borders).
 //!
 //! Two variants share every rule and differ only in colour:
-//! - dark (default): the "dark Helix sky" used by Emufy — deepened ink canvas,
+//! - dark (default): the "dark Helix sky" — deepened ink canvas,
 //!   Pale Amber text at a few opacities, Red accent, Blush focus;
 //! - light: Pale Amber canvas, ink text, Red accent.
 
@@ -108,8 +108,8 @@ pub const LIGHT: Palette = Palette {
 
 pub const DARK: Palette = Palette {
     dark: true,
-    canvas: Color32::from_rgb(0x1E, 0x19, 0x14), // ink, deepened (Emufy sky top)
-    panel: Color32::from_rgb(0x28, 0x20, 0x1A),  // Emufy floating plate, opaque
+    canvas: Color32::from_rgb(0x1E, 0x19, 0x14), // ink, deepened (top of the Helix sky)
+    panel: Color32::from_rgb(0x28, 0x20, 0x1A),  // floating plate, opaque
     tile: Color32::from_rgb(0x3C, 0x33, 0x2B),   // ink lifted toward Pale Amber
     field: Color32::from_rgb(0x1E, 0x19, 0x14),
     text: AMBER,
@@ -128,7 +128,7 @@ pub const DARK: Palette = Palette {
     accent_hover: RUST,
     on_accent: PAPER,
     link: BLUSH,
-    // Helix: extrapolated — same status colours as Emufy's dark variant.
+    // Helix: extrapolated — the palette has no status colours; these are AA on the dark canvas.
     error: Color32::from_rgb(0xFF, 0x8A, 0x8A),
     success: Color32::from_rgb(0x4A, 0xDE, 0x80),
     on_status: INK,

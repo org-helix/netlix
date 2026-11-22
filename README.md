@@ -1,6 +1,10 @@
 # netlix
 
-A small network simulator in the spirit of Packet Tracer. Draw a topology, set IP addresses, and ping between devices. It is a single native binary for Windows, Linux and macOS, written in Rust with [egui](https://github.com/emilk/egui).
+**Draw a network, set IP addresses, and watch every frame of a ping.**
+
+netlix is a small network simulator in the spirit of Packet Tracer, from [Helix](https://org-helix.github.io/helix-website/), which builds public-good software for the communities that mainstream tech leaves behind: schools, clinics and the people they serve. A teacher or a student can build a topology, configure it and follow ARP, switching and routing frame by frame, with no licence, no account and no connection.
+
+Like every Helix app, netlix is free, open source and offline first. It is a single native app for Windows, Linux and macOS, written in Rust with [egui](https://github.com/emilk/egui).
 
 ![netlix in dark mode: two LANs behind a router with an Internet uplink, router settings on the right, ping results below](docs/screenshot.png)
 
@@ -76,7 +80,17 @@ cargo test     # simulation, file format and model tests
 cargo clippy --all-targets
 ```
 
-Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed. Each platform has a packaging script under `packaging/`, which can also be run by hand:
+On Linux, building needs `libxkbcommon-dev libwayland-dev libgl1-mesa-dev` and the `libxcb-*` headers (see `.github/workflows/ci.yml`). File dialogs use the XDG portal, so GTK is not needed.
+
+Code map: `i18n.rs` (languages: every text is written in French and English where it is used, with `tr(fr, en)` or `tf!(fr, en)`), `model.rs` (topology data), `sim.rs` (frame-level ping, ARP, switching, routing), `io.rs` (file format), `canvas.rs` (drawing and interaction), `panels.rs` (toolbox, inspector, console), `theme.rs` (Helix look), `welcome.rs` (first-launch screen), `titlebar.rs` (custom title bar, window move and resize), `app.rs` (state, menus, files).
+
+## Releasing
+
+1. Raise `version` in `Cargo.toml` (and the version shown on the [Helix website](https://github.com/org-helix/helix-website), in `src/content/site.ts`).
+2. Write the release notes in `docs/releases/vX.Y.Z.md`.
+3. Push a `vX.Y.Z` tag. `.github/workflows/release.yml` tests, builds the three downloads and publishes the release with those notes (or notes generated from the commits if the file is missing).
+
+Each platform has a packaging script under `packaging/`, which can also be run by hand:
 
 | Platform | Command (from the repository root) | Output |
 |---|---|---|
@@ -86,10 +100,26 @@ Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed.
 
 Pull requests that change `packaging/` build the three files as workflow artifacts without publishing them. The app icon is drawn in `assets/icon/netlix.svg`; `assets/icon/make-icons.cjs` regenerates the PNG, ICO, ICNS and installer images from it.
 
-On Linux, building needs `libxkbcommon-dev libwayland-dev libgl1-mesa-dev` and the `libxcb-*` headers (see `.github/workflows/ci.yml`). File dialogs use the XDG portal, so GTK is not needed.
-
-Code map: `i18n.rs` (languages: every text is written in French and English where it is used, with `tr(fr, en)` or `tf!(fr, en)`), `model.rs` (topology data), `sim.rs` (frame-level ping, ARP, switching, routing), `io.rs` (file format), `canvas.rs` (drawing and interaction), `panels.rs` (toolbox, inspector, console), `theme.rs` (Helix look), `welcome.rs` (first-launch screen), `titlebar.rs` (custom title bar, window move and resize), `app.rs` (state, menus, files).
-
 ## Design
 
 netlix uses the Helix colour palette on top of the Dusk DS structure: Bricolage Grotesque titles, Geist text, a 4 px grid, 8/12/16 radii, and no drop shadows. The dark theme is the dark Helix variant: a deepened ink canvas (`#1E1914`), Pale Amber text, Red `#B24E30` as the only action colour and Blush for focus. The light theme puts ink on Pale Amber (`#FAF6ED`). All colours live in `src/theme.rs`, and a unit test checks WCAG AA contrast for both themes. Fonts are bundled under the SIL Open Font License (`assets/fonts/OFL-*.txt`).
+
+## Privacy
+
+- netlix never connects to the Internet. The "Internet" device is part of the simulation.
+- No account, no ads, no analytics, no tracking.
+- Topologies are saved only where you choose, as `.netlix` files. Settings (language, theme) stay on the computer.
+
+## Credits
+
+- **[Helix](https://github.com/org-helix)** designs, builds and maintains netlix. The app credits Helix on its welcome screen and under **Help**.
+- **Fonts**: [Bricolage Grotesque](https://github.com/ateliertriay/bricolage) and [Geist](https://github.com/vercel/geist-font), bundled under the SIL Open Font License ([`assets/fonts`](assets/fonts)).
+- **Libraries**: [egui and eframe](https://github.com/emilk/egui), [serde](https://serde.rs), [rfd](https://github.com/PolyMeilex/rfd) and [sys-locale](https://github.com/1Password/sys-locale), each under its own licence (MIT or Apache 2.0).
+
+Questions, ideas and bug reports are welcome in the [issues](https://github.com/org-helix/netlix/issues). Before sending a change, read the [Helix contributing guide](https://github.com/org-helix/.github/blob/main/CONTRIBUTING.md); to report a security problem, follow the [security policy](https://github.com/org-helix/.github/blob/main/SECURITY.md).
+
+## License
+
+netlix is free software, released under the [GNU General Public License, version 3](LICENSE). You may use, study, share and change it; versions you distribute must stay under the same license. The bundled fonts keep their own license (SIL Open Font License).
+
+> No tracking, no ads, no lock-in. Built for and with the communities that use it.

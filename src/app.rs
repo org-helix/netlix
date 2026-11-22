@@ -784,6 +784,14 @@ impl App {
                     "Version {}",
                     env!("CARGO_PKG_VERSION")
                 )));
+                ui.label(theme::muted(tr(
+                    "Un projet Helix. Logiciel libre sous licence GNU GPL v3.",
+                    "A Helix project. Free software under the GNU GPL v3.",
+                )));
+                ui.hyperlink_to(
+                    tr("Code source", "Source code"),
+                    env!("CARGO_PKG_REPOSITORY"),
+                );
                 ui.separator();
                 ui.label(tr("1–5  placer un appareil", "1–5  place a device"));
                 ui.label(tr(
